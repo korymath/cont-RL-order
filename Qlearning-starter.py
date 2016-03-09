@@ -8,7 +8,7 @@ import random
 import matplotlib.pyplot as plt
 
 numRuns = 5
-numEpisodes = 5
+numEpisodes = 50
 alpha = 0.4/numTilings
 gamma = 1
 lmbda = 0.9
