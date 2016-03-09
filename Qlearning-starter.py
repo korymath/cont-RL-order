@@ -3,7 +3,7 @@ from Tilecoder import numTilings, tilecode, numTiles
 from Tilecoder import numTiles as n
 import numpy as np
 # from pylab import *
-# import random
+import random
 
 numRuns = 1
 numEpisodes = 50
@@ -13,7 +13,7 @@ lmbda = 0.9
 epsilon = 0.001
 n = numTiles * 3
 zerovec = np.zeros(n)
-F = [-1]*numTilings
+state = [-1]*numTilings
 actions = [0, 1, 2]
 runSum = 0.0
 
@@ -21,11 +21,11 @@ runSum = 0.0
 bigReturn = np.zeros(shape=(numRuns, numEpisodes))
 bigSteps = np.zeros(shape=(numRuns, numEpisodes))
 
-def Qs(F):
+def Qs(state):
     Q = [0, 0, 0]
     for a in actions:
-        for f in F:
-            Q[a] += w[f + (a*12*9*9)]
+        for index in state:
+            Q[a] += w[index + (a*12*9*9)]
     return Q
 
 def writeF():
@@ -46,50 +46,72 @@ for run in range(numRuns):
     returnSum = 0.0
     for episodeNum in range(numEpisodes):
         G = 0
+        step = 0
 
         # From Figure 9.9 in Sutton RL 2014
         # n-component eligibility trace vector
         e = np.zeros(n)
-        S = mountaincar.init()
-        step = 0
+
+        # initialize observation
+        observation = mountaincar.init()
+
+        # use function approximation to generate next state
+        tilecode(observation[0], observation[1], state)
+
+        # compute the Q values for the state and every action
+        Q = Qs(state)
+
+
 
         # repeat for each step of episode
         while True:
-
-            tilecode(S[0], S[1], F)
-
-            # for all actions from state
-            Q = Qs(F)
-
+            
+            # choose action a (epsilon-greedy)
             if np.random.uniform(0, 1) < epsilon:
                 A = np.random.choice(actions)
                 e = np.zeros(n)
             else:
+                # choose A from max, Q
                 A = Q.index(max(Q))
 
-            R, Sn = mountaincar.sample(S, A)
-            
+            # take some time with the world changing
+            someRandomAmountOfTime = random.randint(1,5)
+            unknownObs = observation
+            for i in range(1, someRandomAmountOfTime):
+                unknownR, unknownObs, terminal = mountaincar.sample(unknownObs, A)            
+                if terminal:
+                    w += alpha*delta*e
+                    break
+
+            # take action a and get reward R and new observation
+            R, newObservation, terminal = mountaincar.sample(unknownObs, A)
+
             delta = R - Q[A]
             G += R
 
             # update the replacing traces
-            for f in F:
+            for index in state:
                 # index to the action space
-                e[f+(A*12*9*9)] = 1
+                e[index+(A*12*9*9)] = 1
 
-            # if Sn is terminal
-            if None == Sn:
+            # if newObservation is terminal is terminal
+            if terminal:
                 w += alpha*delta*e
                 break
 
-            # for all actions from new state
-            tilecode(Sn[0], Sn[1], F)
-            Qn = Qs(F)
+            # function approximation
+            tilecode(newObservation[0], newObservation[1], state)
 
-            delta += gamma*Qn[np.argmax(Qn)]
+            # compute the Q values for the state and every action
+            Q = Qs(state)
+
+            # learning
+            delta += gamma*Q[np.argmax(Q)]
             w += alpha*delta*e
             e = gamma*lmbda*e
-            S = Sn
+
+            # update the observation
+            observation = newObservation
             step += 1
 
         print "Episode: ", episodeNum, "Return: ", G
