@@ -31,7 +31,7 @@ def Qs(state):
     return Q
 
 def writeF():
-    fout = open('value500ep', 'w')
+    fout = open('value500ep.out', 'w')
     F = [0]*numTilings
     steps = 50
     for i in range(steps):
