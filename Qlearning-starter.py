@@ -4,6 +4,7 @@ from Tilecoder import numTiles as n
 import numpy as np
 # from pylab import *
 import random
+import sys
 
 import matplotlib.pyplot as plt
 
@@ -18,6 +19,9 @@ zerovec = np.zeros(n)
 state = [-1]*numTilings
 actions = [0, 1, 2]
 runSum = 0.0
+flipped = False
+if len(sys.argv) > 2 and sys.argv[1] == 'flipped':
+    flipped = True
 
 # output arrays
 bigReturn = np.zeros(shape=(numRuns, numEpisodes))
@@ -42,6 +46,17 @@ def writeF():
         fout.write('\n')
     fout.close()
 
+def chooseAction(Q):
+    # choose action a (epsilon-greedy)
+    if np.random.uniform(0, 1) < epsilon:
+        A = np.random.choice(actions)
+        e = np.zeros(n)
+    else:
+        # choose A from max, Q
+        A = Q.index(max(Q))
+    return A
+
+
 # represent actions decelerate, coast, accelerate as integers
 for run in range(numRuns):
     w = -0.01*np.random.rand(n)
@@ -63,18 +78,13 @@ for run in range(numRuns):
         # compute the Q values for the state and every action
         Q = Qs(state)
 
+        # if flipped:
 
 
         # repeat for each step of episode
         while True:
             
-            # choose action a (epsilon-greedy)
-            if np.random.uniform(0, 1) < epsilon:
-                A = np.random.choice(actions)
-                e = np.zeros(n)
-            else:
-                # choose A from max, Q
-                A = Q.index(max(Q))
+            A = chooseAction(Q)
 
             # take some time with the world changing
             someRandomAmountOfTime = random.randint(1,5)
