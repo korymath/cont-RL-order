@@ -5,8 +5,10 @@ import numpy as np
 # from pylab import *
 import random
 
-numRuns = 1
-numEpisodes = 50
+import matplotlib.pyplot as plt
+
+numRuns = 5
+numEpisodes = 5
 alpha = 0.4/numTilings
 gamma = 1
 lmbda = 0.9
@@ -127,6 +129,21 @@ print "Overall average return:", runSum/numRuns/numEpisodes
 writeF()
 np.savetxt('returns500run.out', bigReturn)
 np.savetxt('steps500run.out', bigSteps)
+
+t = range(numEpisodes)
+fig = plt.figure()
+ax1 = fig.add_subplot(111)
+y = np.mean(bigReturn, axis=0)
+e = np.std(bigReturn, axis=0)
+ax1.errorbar(t, y, e)
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+y = np.mean(bigSteps, axis=0)
+e = np.std(bigSteps, axis=0)
+ax2.errorbar(t, y, e)
+plt.show()
+
 
 # A sweep of parameters tested for alpha and epsilon are in the 3D plot in the part 2 folder. From this plot, it is
 # apparent that a smaller epsilon and a moderate alpha combination is ideal. From this plot, we can conclude that the
