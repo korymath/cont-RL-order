@@ -27,9 +27,11 @@ def sample(S,A):
     elif velocity >= 0.07:
         velocity = 0.06999999
     position += velocity
+
     if position >= 0.5:
-        return R,None
+        return R, (position,velocity), True
+        
     if position < -1.2:
         position = -1.2
         velocity = 0.0
-    return R,(position,velocity)
+    return R,(position,velocity), False
