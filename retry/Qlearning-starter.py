@@ -1,24 +1,15 @@
-import musicalMountain as mountaincar
-from musicalTilecoder import simple_tiles
+import mountaincar
+from Tilecoder import numTilings, tilecode, numTiles
+from Tilecoder import numTiles as n
 import numpy as np
 from pylab import *
 import random
 import sys
 
 import matplotlib.pyplot as plt
-numTilings = 12
-observationRanges =  [[-1.2,.5], [-0.07, 0.07], [1,2]]
-observationAcc = [.01, .01, 1]
-numstates = 1
-for i in range(0,3):
-    numstates *= (observationRanges[i][1] - observationRanges[i][0]) / observationAcc[i]
-    numstates = int(math.floor(numstates))
 
-print('numstates: ' + str(numstates))
-numTiles = numstates * numTilings
-print('numTiles: ' + str(numTiles))
-numRuns = 10
-numEpisodes = 50
+numRuns = 100
+numEpisodes = 100
 alpha = 0.4/numTilings
 gamma = 1
 lmbda = 0.9
@@ -26,15 +17,17 @@ epsilon = 0.001
 n = numTiles * 3
 zerovec = np.zeros(n)
 state = [-1]*numTilings
+textActions = ['go backward', 'stop', 'go forward']
 actions = [0, 1, 2]
 minNumExtraSteps = 1
 maxNumExtraSteps = 1
+maxSteps = 1000
 runSum = 0.0
-
-previous_tiles = [0 for item in range(numTilings)]
 flipped = False
+filePrefix = ''
 if len(sys.argv) == 2 and sys.argv[1] == 'flipped':
     flipped = True
+    filePrefix = 'flipped-'
 
 # output arrays
 bigReturn = np.zeros(shape=(numRuns, numEpisodes))
@@ -42,19 +35,21 @@ bigSteps = np.zeros(shape=(numRuns, numEpisodes))
 
 def Qs(state):
     Q = [0, 0, 0]
-    
     for a in actions:
-        Q[a] += w[state + (a*numstates)]
+        for index in state:
+            Q[a] += w[index + (a*numTiles)]
     return Q
 
 def writeF():
-    fout = open('value500ep.out', 'w')
+    fout = open(filePrefix + 'value500ep.out', 'w')
     F = [0]*numTilings
     steps = 50
     for i in range(steps):
         for j in range(steps):
-            tilecode(-1.2+i*1.7/steps, -0.07+j*0.14/steps, F)
+            tilecode(-1.2+i*1.7/steps, -0.07+j*0.14/steps, 1, F)
             height = -max(Qs(F))
+            tilecode(-1.2+i*1.7/steps, -0.07+j*0.14/steps, 2, F)
+            height += -max(Qs(F))
             fout.write(repr(height) + ' ')
         fout.write('\n')
     fout.close()
@@ -71,7 +66,6 @@ def chooseAction(Q):
 
 
 # represent actions decelerate, coast, accelerate as integers
-print('n:' + str(n))
 for run in range(numRuns):
     w = -0.01*np.random.rand(n)
     returnSum = 0.0
@@ -87,9 +81,7 @@ for run in range(numRuns):
         observation = mountaincar.init()
 
         # use function approximation to generate next state
-        #tilecode(observation[0], observation[1], observation[2], state)
-
-        state = simple_tiles(observation, observationRanges, observationAcc)
+        tilecode(observation[0], observation[1], observation[2], state)
 
         # compute the Q values for the state and every action
         Q = Qs(state)
@@ -97,12 +89,12 @@ for run in range(numRuns):
         terminal = False
         A = chooseAction(Q)
         unknownObs = observation
-
+        
         if flipped:
-            R, observation, terminal = mountaincar.sample(observation, A, terminal)
+            R, observation, terminal = mountaincar.sample(observation, A, terminal, False)
             someRandomAmountOfTime = random.randint(minNumExtraSteps,maxNumExtraSteps)
             for i in range(1, someRandomAmountOfTime):
-                unknownR, unknownObs, terminal, surprise = mountaincar.sample(unknownObs, A, terminal)
+                unknownR, observation, terminal = mountaincar.sample(observation, A, terminal, True)
                 G += unknownR
             step += someRandomAmountOfTime
 
@@ -111,8 +103,8 @@ for run in range(numRuns):
 
             if not flipped:
                 # take action a and get reward R and new observation
-                R, observation, terminal = mountaincar.sample(unknownObs, A, terminal)
-                print(observation)
+                R, observation, terminal = mountaincar.sample(observation, A, terminal, False)
+
                 # if newObservation is terminal
                 if terminal:
                     w += alpha*delta*e
@@ -122,44 +114,45 @@ for run in range(numRuns):
                 G += R
 
                 # update the replacing traces
-                e[state+(A*numstates)] = 1
+                for index in state:
+                    e[index+(A*numTiles)] = 1
 
                 # function approximation
-                #tilecode(observation[0], observation[1], observation[2], state)
-                state = simple_tiles(observation, observationRanges, observationAcc)
+                tilecode(observation[0], observation[1], observation[2], state)
 
                 # compute the Q values for the state and every action
                 Q = Qs(state)
 
                 A = chooseAction(Q)
 
+                #if observation[2] == 2:
+                #    print('There is a sheep and the classic algorithm acted with ' + textActions[A])
+
                 # learning
                 delta += gamma*Q[np.argmax(Q)]
                 w += alpha*delta*e
                 e = gamma*lmbda*e
 
-
-
             if flipped:
-                observation = unknownObs
 
                 delta = R - Q[A]
                 G += R
 
                 # update the replacing traces
-                e[state+(A*numstates)] = 1
+                for index in state:
+                    e[index+(A*numTiles)] = 1
 
                 # function approximation
-                #tilecode(observation[0], observation[1], observation[2], state)
-
-                state = simple_tiles(observation, observationRanges, observationAcc)
+                tilecode(observation[0], observation[1], observation[2], state)
 
                 # compute the Q values for the state and every action
                 Q = Qs(state)
-
                 A = chooseAction(Q)
 
-                R, observation, terminal = mountaincar.sample(observation, A, terminal)
+                #if observation[2] == 2:
+                #    print('There is a sheep and the flipped algorithm acted with ' + textActions[A])                
+
+                R, observation, terminal = mountaincar.sample(observation, A, terminal, True)
                 if terminal:
                     w += alpha*delta*e
                     break
@@ -169,20 +162,18 @@ for run in range(numRuns):
                 w += alpha*delta*e
                 e = gamma*lmbda*e
 
-
-            # take some time with the world changing
-            unknownObs = observation
+            # update the observation
             someRandomAmountOfTime = random.randint(minNumExtraSteps,maxNumExtraSteps)
             for i in range(1, someRandomAmountOfTime):
-                unknownR, unknownObs, terminal, unknownSurprise = mountaincar.sample(unknownObs, A, terminal)
-                G += unknownR 
-                if terminal:
-                    print('In terminal')
-                    w += alpha*delta*e
-                    break
-
-            # update the observation
-            step += someRandomAmountOfTime
+                if i == someRandomAmountOfTime:
+                    unknownR, observation, terminal = mountaincar.sample(observation, A, terminal, False)    
+                else:
+                    unknownR, observation, terminal = mountaincar.sample(observation, A, terminal, True)
+                G += unknownR      
+            step += 1 + someRandomAmountOfTime
+            if step > maxSteps:
+                step = 1000
+                terminal = True                
 
         # collect output for analysis
         bigReturn[run][episodeNum] = G
@@ -193,7 +184,36 @@ for run in range(numRuns):
     runSum += returnSum
 print "Overall average return:", runSum/numRuns/numEpisodes
 writeF()
-print 'saving flipped'
-np.savetxt('flipped-returns500run.out', bigReturn)
-np.savetxt('flipped-steps500run.out', bigSteps)
 
+print('Saving values')
+np.savetxt(filePrefix + 'returns500run.out', bigReturn)
+np.savetxt(filePrefix + 'steps500run.out', bigSteps)
+
+
+r1 = loadtxt('returns500run.out')
+s1 = loadtxt('steps500run.out')
+r2 = loadtxt('flipped-returns500run.out')
+s2 = loadtxt('flipped-steps500run.out')
+
+
+t = range(numEpisodes)
+fig = plt.figure()
+ax1 = fig.add_subplot(121)
+y = np.mean(r1, axis=0)
+e = np.std(r1, axis=0)
+l1 = ax1.errorbar(t, y, e)
+y = np.mean(r2, axis=0)
+e = np.std(r2, axis=0)
+l2 = ax1.errorbar(t, y, e)
+
+ax2 = fig.add_subplot(122)
+y = np.mean(s1, axis=0)
+e = np.std(s1, axis=0)
+l3 = ax2.errorbar(t, y, e)
+y = np.mean(s2, axis=0)
+e = np.std(s2, axis=0)
+l4 = ax2.errorbar(t, y, e)
+
+fig.legend((l1, l2), ('Classic Return', 'Flipped Return'), 'upper left')
+fig.legend((l3, l4), ('Classic Steps', 'Flipped Steps'), 'upper right')
+plt.show()

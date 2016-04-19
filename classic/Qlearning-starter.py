@@ -22,8 +22,6 @@ minNumExtraSteps = 1
 maxNumExtraSteps = 1
 runSum = 0.0
 flipped = False
-if len(sys.argv) == 2 and sys.argv[1] == 'flipped':
-    flipped = True
 
 # output arrays
 bigReturn = np.zeros(shape=(numRuns, numEpisodes))
@@ -178,43 +176,11 @@ for run in range(numRuns):
     runSum += returnSum
 print "Overall average return:", runSum/numRuns/numEpisodes
 writeF()
-if not flipped:
-    print 'saving orig'
-    np.savetxt('returns500run.out', bigReturn)
-    np.savetxt('steps500run.out', bigSteps)
-else:
-    print 'saving flipped'
-    np.savetxt('flipped-returns500run.out', bigReturn)
-    np.savetxt('flipped-steps500run.out', bigSteps)
-
-def plotBoth():
-    r1 = loadtxt('returns500run.out')
-    r2 = loadtxt('flipped-returns500run.out')
-    s1 = loadtxt('steps500run.out')
-    s2 = loadtxt('flipped-steps500run.out')
+print 'saving orig'
+np.savetxt('returns500run.out', bigReturn)
+np.savetxt('steps500run.out', bigSteps)
 
 
-    t = range(numEpisodes)
-    fig = plt.figure()
-    ax1 = fig.add_subplot(111)
-    y = np.mean(r1, axis=0)
-    e = np.std(r1, axis=0)
-    ax1.errorbar(t, y, e)
-    y = np.mean(r2, axis=0)
-    e = np.std(r2, axis=0)
-    ax1.errorbar(t, y, e)
-
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot(111)
-    y = np.mean(s1, axis=0)
-    e = np.std(s1, axis=0)
-    ax2.errorbar(t, y, e)
-    y = np.mean(s2, axis=0)
-    e = np.std(s2, axis=0)
-    ax2.errorbar(t, y, e)
-    plt.show()
-
-plotBoth()
 # A sweep of parameters tested for alpha and epsilon are in the 3D plot in the part 2 folder. From this plot, it is
 # apparent that a smaller epsilon and a moderate alpha combination is ideal. From this plot, we can conclude that the
 # optimal value for alpha is between 0.3 and 0.6, and the optimal epsilon is very low (0.001-0.002). This makes sense

@@ -4,16 +4,22 @@ def simple_tiles(observations, observationRanges, observationAcc):
 
     features = [0]*len(observations)
     numstates = 1
+
+    numStatesFeatures = [0]*len(observations)
+
     for i in range(0,len(observations)):
         numstates *= (observationRanges[i][1] - observationRanges[i][0]) / observationAcc[i]
-        features[i] = int(math.floor((observations[i] - observationRanges[i][0]) /observationAcc[i]))
+        numStatesFeatures[i] = (observationRanges[i][1] - observationRanges[i][0]) / observationAcc[i]
+
+        features[i] = int(math.floor((int(observations[i]) + 1 - observationRanges[i][0]) /observationAcc[i]))
+
 
     numstates = int(math.floor(numstates))
 
     tiled_features = 0
 
     for j in range(len(features)):
-        tiled_features += features[j]*numstates**j
+        tiled_features += features[j]*numStatesFeatures[j]
 
     return int(tiled_features)
 
