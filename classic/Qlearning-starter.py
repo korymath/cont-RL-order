@@ -2,13 +2,13 @@ import mountaincar
 from Tilecoder import numTilings, tilecode, numTiles
 from Tilecoder import numTiles as n
 import numpy as np
-# from pylab import *
+from pylab import *
 import random
 import sys
 
 import matplotlib.pyplot as plt
 
-numRuns = 5
+numRuns = 10
 numEpisodes = 50
 alpha = 0.4/numTilings
 gamma = 1
@@ -18,10 +18,10 @@ n = numTiles * 3
 zerovec = np.zeros(n)
 state = [-1]*numTilings
 actions = [0, 1, 2]
+minNumExtraSteps = 1
+maxNumExtraSteps = 1
 runSum = 0.0
 flipped = False
-if len(sys.argv) > 2 and sys.argv[1] == 'flipped':
-    flipped = True
 
 # output arrays
 bigReturn = np.zeros(shape=(numRuns, numEpisodes))
@@ -78,55 +78,94 @@ for run in range(numRuns):
         # compute the Q values for the state and every action
         Q = Qs(state)
 
-        # if flipped:
-
+        terminal = False
+        A = chooseAction(Q)
+        unknownObs = observation
+        
+        if flipped:
+            R, observation, terminal = mountaincar.sample(observation, A, terminal)
+            someRandomAmountOfTime = random.randint(minNumExtraSteps,maxNumExtraSteps)
+            for i in range(1, someRandomAmountOfTime):
+                unknownR, unknownObs, terminal = mountaincar.sample(unknownObs, A, terminal)
+                G += unknownR
+            step += someRandomAmountOfTime
 
         # repeat for each step of episode
         while True:
-            
-            A = chooseAction(Q)
 
-            # take some time with the world changing
-            someRandomAmountOfTime = random.randint(1,5)
-            unknownObs = observation
-            for i in range(1, someRandomAmountOfTime):
-                unknownR, unknownObs, terminal = mountaincar.sample(unknownObs, A)            
+            if not flipped:
+                # take action a and get reward R and new observation
+                R, observation, terminal = mountaincar.sample(unknownObs, A, terminal)
+                # if newObservation is terminal
                 if terminal:
                     w += alpha*delta*e
                     break
 
-            # take action a and get reward R and new observation
-            R, newObservation, terminal = mountaincar.sample(unknownObs, A)
+                delta = R - Q[A]
+                G += R
 
-            delta = R - Q[A]
-            G += R
+                # update the replacing traces
+                for index in state:
+                    # index to the action space
+                    e[index+(A*12*9*9)] = 1
 
-            # update the replacing traces
-            for index in state:
-                # index to the action space
-                e[index+(A*12*9*9)] = 1
+                # function approximation
+                tilecode(observation[0], observation[1], state)
 
-            # if newObservation is terminal is terminal
-            if terminal:
+                # compute the Q values for the state and every action
+                Q = Qs(state)
+
+                A = chooseAction(Q)
+
+                # learning
+                delta += gamma*Q[np.argmax(Q)]
                 w += alpha*delta*e
-                break
+                e = gamma*lmbda*e
 
-            # function approximation
-            tilecode(newObservation[0], newObservation[1], state)
 
-            # compute the Q values for the state and every action
-            Q = Qs(state)
 
-            # learning
-            delta += gamma*Q[np.argmax(Q)]
-            w += alpha*delta*e
-            e = gamma*lmbda*e
+            if flipped:
+                observation = unknownObs
+
+                delta = R - Q[A]
+                G += R
+
+                # update the replacing traces
+                for index in state:
+                    # index to the action space
+                    e[index+(A*12*9*9)] = 1
+
+                # function approximation
+                tilecode(observation[0], observation[1], state)
+
+                # compute the Q values for the state and every action
+                Q = Qs(state)
+
+                A = chooseAction(Q)
+
+                R, observation, terminal = mountaincar.sample(observation, A, terminal)
+                if terminal:
+                    w += alpha*delta*e
+                    break
+
+                # learning
+                delta += gamma*Q[np.argmax(Q)]
+                w += alpha*delta*e
+                e = gamma*lmbda*e
+
+
+            # take some time with the world changing
+            unknownObs = observation
+            someRandomAmountOfTime = random.randint(minNumExtraSteps,maxNumExtraSteps)
+            for i in range(1, someRandomAmountOfTime):
+                unknownR, unknownObs, terminal = mountaincar.sample(unknownObs, A, terminal)
+                G += unknownR 
+                if terminal:
+                    w += alpha*delta*e
+                    break
 
             # update the observation
-            observation = newObservation
-            step += 1
-
-        print "Episode: ", episodeNum, "Return: ", G
+            step += someRandomAmountOfTime
 
         # collect output for analysis
         bigReturn[run][episodeNum] = G
@@ -137,22 +176,9 @@ for run in range(numRuns):
     runSum += returnSum
 print "Overall average return:", runSum/numRuns/numEpisodes
 writeF()
+print 'saving orig'
 np.savetxt('returns500run.out', bigReturn)
 np.savetxt('steps500run.out', bigSteps)
-
-t = range(numEpisodes)
-fig = plt.figure()
-ax1 = fig.add_subplot(111)
-y = np.mean(bigReturn, axis=0)
-e = np.std(bigReturn, axis=0)
-ax1.errorbar(t, y, e)
-
-fig2 = plt.figure()
-ax2 = fig2.add_subplot(111)
-y = np.mean(bigSteps, axis=0)
-e = np.std(bigSteps, axis=0)
-ax2.errorbar(t, y, e)
-plt.show()
 
 
 # A sweep of parameters tested for alpha and epsilon are in the 3D plot in the part 2 folder. From this plot, it is
